@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppRoute, Navbar } from './components/Navbar';
+import { AppRoute, MobileBottomNav, Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { StoreProvider } from './context/StoreContext';
@@ -53,6 +53,7 @@ export default function App() {
             {route === 'admin' && <AdminPage />}
           </main>
           <Footer onNavigate={(r) => handleNavigate(r)} />
+          <MobileBottomNav activeRoute={route} onNavigate={(r) => handleNavigate(r)} />
         </div>
       </StoreProvider>
     </ErrorBoundary>

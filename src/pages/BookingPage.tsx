@@ -465,7 +465,7 @@ export function BookingPage({
   const isSelectedDateBlocked = blockedDates.includes(selectedDate);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24 lg:pb-12 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-36 md:pb-24 lg:pb-12 space-y-6">
       {/* Compact Header + Interactive 3-Step Bar (Always Visible — Zero Hidden Features) */}
       <div className="bg-[#FFFFFF] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1151,7 +1151,7 @@ export function BookingPage({
       </div>
 
       {/* Compact Mobile Bottom Action Bar (<= 15% Viewport Height) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF]/95 backdrop-blur-md border-t border-[#E5E1D8] px-4 py-3 flex items-center justify-between gap-3">
+      <div className="lg:hidden fixed bottom-16 md:bottom-0 left-0 right-0 z-30 bg-[#FFFFFF]/95 backdrop-blur-md border-t border-[#E5E1D8] px-4 py-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] text-[#5A5C63]">
             {selectedSlot ? `${selectedDateLabel?.dayShort} ${selectedSlot}` : selectedService.name}
