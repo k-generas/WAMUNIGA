@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { Award, Check, Copy, Crown, Gift, Share2, Sparkles } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { SHOP_INFO, VipPlan } from '../data/catalog';
+import { VipPlan } from '../data/catalog';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import {
-  buildWhatsAppUrl,
   formatDisplayPhone,
   formatRwf,
   generateId,
@@ -32,7 +31,6 @@ interface LoyaltyRecord {
 export function ClubPage({ onNavigate }: ClubPageProps) {
   const { vipPlans, siteConfig } = useStore();
   const activePlans = vipPlans.filter((p) => p.active !== false);
-  const primaryRaw = normalizePhoneKey(siteConfig.primaryPhone) || SHOP_INFO.phones[0].raw;
   const [phoneQuery, setPhoneQuery] = useState('');
   const [firstNameInput, setFirstNameInput] = useState('');
   const [card, setCard] = useState<LoyaltyRecord | null>(null);
@@ -84,10 +82,20 @@ export function ClubPage({ onNavigate }: ClubPageProps) {
     }
 
     const codePrefix = cleanFirst.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'VIP';
-    const refCode = `KCZ-${codePrefix}${notFoundKey.slice(-3)}`;
+    const primaryCode = `KCZ-${codePrefix}${notFoundKey.slice(-3)}`;
 
     setLoadingCard(true);
     try {
+      let refCode = primaryCode;
+      const existingRef = await getDoc(doc(db, 'referrals', primaryCode));
+      if (existingRef.exists()) {
+        const fallbackCode = `KCZ-${codePrefix}${notFoundKey.slice(-4)}`;
+        const existingFallback = await getDoc(doc(db, 'referrals', fallbackCode));
+        refCode = existingFallback.exists()
+          ? `KCZ-${codePrefix}${notFoundKey.slice(-3)}${Math.random().toString(36).slice(2, 4).toUpperCase()}`.slice(0, 20)
+          : fallbackCode;
+      }
+
       const batch = writeBatch(db);
       const newCard: LoyaltyRecord = {
         phoneKey: notFoundKey,
@@ -266,6 +274,17 @@ export function ClubPage({ onNavigate }: ClubPageProps) {
                 })}
               </div>
 
+              {card.stamps >= 5 && (
+                <div className="bg-[#FFFFFF] border border-[#B48222]/50 rounded-lg px-4 py-2.5 text-xs font-medium text-[#18191B] flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-[#B48222] shrink-0" />
+                  <span>
+                    {card.stamps >= 6
+                      ? 'Reward ready (6/6 stamps)! Show your phone at the desk so your barber redeems your free cut/beard reward.'
+                      : '5 stamps collected — your 6th cut unlocks a free beard sculpt or 5,000 RWF off!'}
+                  </span>
+                </div>
+              )}
+
               <div className="border-t border-[#E5E1D8] pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <p className="text-xs text-[#5A5C63]">Your 2,000 RWF Referral Code</p>
@@ -281,10 +300,9 @@ export function ClubPage({ onNavigate }: ClubPageProps) {
                     {copiedCode ? 'Copied Link' : 'Copy Link'}
                   </button>
                   <a
-                    href={buildWhatsAppUrl(
-                      primaryRaw,
+                    href={`https://wa.me/?text=${encodeURIComponent(
                       `Book a fresh cut at ${siteConfig.brandName} with my referral code ${card.referralCode} for 2,000 RWF off: ${window.location.origin}/?ref=${card.referralCode}`
-                    )}
+                    )}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#14532D] text-white rounded-lg text-xs font-semibold hover:bg-[#166534]"

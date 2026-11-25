@@ -210,8 +210,8 @@ export function BookingPage({
     );
   };
 
-  const handleApplyReferral = async () => {
-    const cleanCode = referralInput.trim().toUpperCase();
+  const validateAndApplyReferral = async (rawCode: string) => {
+    const cleanCode = rawCode.trim().toUpperCase();
     if (!cleanCode) return;
     if (!/^[a-zA-Z0-9_-]{4,24}$/.test(cleanCode)) {
       setReferralStatus('Enter a valid referral code (e.g. KCZ-KEVIN233).');
@@ -231,6 +231,17 @@ export function BookingPage({
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `referrals/${cleanCode}`);
     }
+  };
+
+  useEffect(() => {
+    if (initialReferralCode) {
+      setReferralInput(initialReferralCode);
+      void validateAndApplyReferral(initialReferralCode);
+    }
+  }, [initialReferralCode]);
+
+  const handleApplyReferral = async () => {
+    await validateAndApplyReferral(referralInput);
   };
 
   const handleSubmitBooking = async (e?: React.FormEvent) => {

@@ -71,6 +71,7 @@ interface BookingDoc {
   paymentMethod: 'mtn_momo' | 'airtel_money' | 'cash_chair';
   bookingType: 'online' | 'walkin';
   status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled';
+  referralCode?: string;
   notes?: string;
 }
 
@@ -448,6 +449,14 @@ export function AdminPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      batch.set(doc(db, 'referrals', 'KCZ-YVES877'), {
+        code: 'KCZ-YVES877',
+        ownerFirstName: 'Yves',
+        discountRwf: 2000,
+        usesCount: 0,
+        active: true,
+        createdAt: serverTimestamp(),
+      });
 
       const ord1 = generateId('ord_demo');
       batch.set(doc(db, 'orders', ord1), {
@@ -532,7 +541,7 @@ export function AdminPage() {
       const cardSnap = await getDoc(cardRef);
       if (cardSnap.exists()) {
         const cur = cardSnap.data();
-        const nextStamps = ((Number(cur.stamps) || 0) + 1) % 6;
+        const nextStamps = Math.min(6, (Number(cur.stamps) || 0) + 1);
         batch.update(cardRef, {
           stamps: nextStamps,
           totalCuts: (Number(cur.totalCuts) || 0) + 1,
@@ -542,7 +551,12 @@ export function AdminPage() {
         });
       } else {
         const first = cleanName.split(' ')[0] || 'Client';
-        const code = `KCZ-${first.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4)}${key.slice(-3)}`;
+        const prefix = first.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'VIP';
+        const baseCode = `KCZ-${prefix}${key.slice(-3)}`;
+        const existingRef = await getDoc(doc(db, 'referrals', baseCode));
+        const code = existingRef.exists()
+          ? `KCZ-${prefix}${key.slice(-4)}`.slice(0, 20)
+          : baseCode;
         batch.set(cardRef, {
           phoneKey: key,
           displayPhone: formatDisplayPhone(walkPhone),
@@ -556,6 +570,28 @@ export function AdminPage() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+        if (!existingRef.exists()) {
+          batch.set(doc(db, 'referrals', code), {
+            code,
+            ownerFirstName: first.slice(0, 60),
+            discountRwf: 2000,
+            usesCount: 0,
+            active: true,
+            createdAt: serverTimestamp(),
+          });
+        } else {
+          const checkFallback = await getDoc(doc(db, 'referrals', code));
+          if (!checkFallback.exists()) {
+            batch.set(doc(db, 'referrals', code), {
+              code,
+              ownerFirstName: first.slice(0, 60),
+              discountRwf: 2000,
+              usesCount: 0,
+              active: true,
+              createdAt: serverTimestamp(),
+            });
+          }
+        }
       }
 
       await batch.commit();
@@ -600,7 +636,7 @@ export function AdminPage() {
           const today = todayIso();
           if (cardSnap.exists()) {
             const cur = cardSnap.data();
-            const nextStamps = ((Number(cur.stamps) || 0) + 1) % 6;
+            const nextStamps = Math.min(6, (Number(cur.stamps) || 0) + 1);
             batch.update(cardRef, {
               stamps: nextStamps,
               totalCuts: (Number(cur.totalCuts) || 0) + 1,
@@ -610,7 +646,12 @@ export function AdminPage() {
             });
           } else {
             const first = booking.customerName.split(' ')[0] || 'Client';
-            const code = `KCZ-${first.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4)}${key.slice(-3)}`;
+            const prefix = first.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5) || 'VIP';
+            const baseCode = `KCZ-${prefix}${key.slice(-3)}`;
+            const existingRef = await getDoc(doc(db, 'referrals', baseCode));
+            const code = existingRef.exists()
+              ? `KCZ-${prefix}${key.slice(-4)}`.slice(0, 20)
+              : baseCode;
             batch.set(cardRef, {
               phoneKey: key,
               displayPhone: booking.customerPhone,
@@ -623,6 +664,29 @@ export function AdminPage() {
               lastVisitDate: today,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
+            });
+            const finalRefSnap = existingRef.exists()
+              ? await getDoc(doc(db, 'referrals', code))
+              : existingRef;
+            if (!finalRefSnap.exists()) {
+              batch.set(doc(db, 'referrals', code), {
+                code,
+                ownerFirstName: first.slice(0, 60),
+                discountRwf: 2000,
+                usesCount: 0,
+                active: true,
+                createdAt: serverTimestamp(),
+              });
+            }
+          }
+        }
+
+        if (booking.referralCode) {
+          const usedRefDoc = doc(db, 'referrals', booking.referralCode);
+          const usedRefSnap = await getDoc(usedRefDoc);
+          if (usedRefSnap.exists()) {
+            batch.update(usedRefDoc, {
+              usesCount: Math.min(100000, (Number(usedRefSnap.data().usesCount) || 0) + 1),
             });
           }
         }

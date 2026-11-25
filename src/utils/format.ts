@@ -4,6 +4,9 @@ export function formatRwf(amount: number): string {
 
 export function normalizePhoneKey(input: string): string {
   const digits = input.replace(/\D/g, '');
+  if (digits.startsWith('2500') && digits.length === 13) {
+    return `250${digits.slice(4)}`;
+  }
   if (digits.startsWith('07') && digits.length === 10) {
     return `250${digits.slice(1)}`;
   }
