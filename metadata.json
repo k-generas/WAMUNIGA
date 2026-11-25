@@ -1,0 +1,6 @@
+{
+  "name": "WAMUNIGGA — Kigali Clipper Zone & Music Hub",
+  "description": "Unified barbershop booking, loyalty club, merch store, music hub, and shop profit dashboard for Wamunigga Didier and Kigali Clipper Zone at La Bonne Adresse, Kigali.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

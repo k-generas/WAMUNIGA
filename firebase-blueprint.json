@@ -1,0 +1,312 @@
+{
+  "entities": {
+    "Booking": {
+      "title": "Booking",
+      "description": "Barbershop appointment or walk-in cut at Kigali Clipper Zone.",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "customerPhone": { "type": "string", "minLength": 8, "maxLength": 24, "pattern": "^[+0-9\\s\\-()]+$" },
+        "serviceId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "serviceName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "addonNames": { "type": "string", "maxLength": 240 },
+        "barberId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "barberName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "date": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "slot": { "type": "string", "minLength": 4, "maxLength": 10, "pattern": "^\\d{2}:\\d{2}$" },
+        "totalRwf": { "type": "number" },
+        "depositRwf": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["mtn_momo", "airtel_money", "cash_chair"] },
+        "bookingType": { "type": "string", "enum": ["online", "walkin"] },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "checked_in", "completed", "cancelled"] },
+        "referralCode": { "type": "string", "maxLength": 32 },
+        "notes": { "type": "string", "maxLength": 300 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "customerName",
+        "customerPhone",
+        "serviceId",
+        "serviceName",
+        "barberId",
+        "barberName",
+        "date",
+        "slot",
+        "totalRwf",
+        "depositRwf",
+        "paymentMethod",
+        "bookingType",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SlotLock": {
+      "title": "SlotLock",
+      "description": "PII-free reservation lock for a specific barber, date, and time slot.",
+      "type": "object",
+      "properties": {
+        "barberId": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "slot": { "type": "string", "minLength": 4, "maxLength": 10, "pattern": "^\\d{2}:\\d{2}$" },
+        "bookingId": { "type": "string", "minLength": 2, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["reserved", "completed", "released"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["barberId", "date", "slot", "bookingId", "status", "createdAt"]
+    },
+    "LoyaltyCard": {
+      "title": "LoyaltyCard",
+      "description": "Phone-keyed digital stamp card and retention record.",
+      "type": "object",
+      "properties": {
+        "phoneKey": { "type": "string", "minLength": 8, "maxLength": 24, "pattern": "^[0-9]+$" },
+        "displayPhone": { "type": "string", "minLength": 8, "maxLength": 24 },
+        "firstName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "stamps": { "type": "number" },
+        "totalCuts": { "type": "number" },
+        "tier": { "type": "string", "enum": ["Standard", "VIP", "Founder"] },
+        "favoriteBarber": { "type": "string", "maxLength": 60 },
+        "referralCode": { "type": "string", "minLength": 4, "maxLength": 24, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "lastVisitDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phoneKey", "displayPhone", "firstName", "stamps", "totalCuts", "tier", "referralCode", "lastVisitDate", "createdAt", "updatedAt"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "Monthly VIP haircut membership pass paid via MoMo.",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "customerPhone": { "type": "string", "minLength": 8, "maxLength": 24 },
+        "planId": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "planName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "priceRwf": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["mtn_momo", "airtel_money"] },
+        "status": { "type": "string", "enum": ["pending_momo", "active", "expired"] },
+        "cutsRemaining": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "customerPhone", "planId", "planName", "priceRwf", "paymentMethod", "status", "cutsRemaining", "createdAt"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Shareable referral or promo code granting RWF discount.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 4, "maxLength": 24, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerFirstName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "discountRwf": { "type": "number" },
+        "usesCount": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "ownerFirstName", "discountRwf", "usesCount", "active", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Merch and grooming product order with Kigali moto delivery or in-shop pickup.",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "customerPhone": { "type": "string", "minLength": 8, "maxLength": 24 },
+        "itemsSummary": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "itemCount": { "type": "number" },
+        "subtotalRwf": { "type": "number" },
+        "deliveryFeeRwf": { "type": "number" },
+        "totalRwf": { "type": "number" },
+        "fulfillment": { "type": "string", "enum": ["shop_pickup", "kigali_moto"] },
+        "deliveryAddress": { "type": "string", "maxLength": 200 },
+        "paymentMethod": { "type": "string", "enum": ["mtn_momo", "airtel_money", "pay_on_pickup"] },
+        "status": { "type": "string", "enum": ["pending", "paid", "dispatched", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "customerPhone", "itemsSummary", "itemCount", "subtotalRwf", "deliveryFeeRwf", "totalRwf", "fulfillment", "paymentMethod", "status", "createdAt"]
+    },
+    "BrandInquiry": {
+      "title": "BrandInquiry",
+      "description": "Performance, club booking, or brand sponsorship inquiry for Wamunigga Didier.",
+      "type": "object",
+      "properties": {
+        "organization": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "contactName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "contactPhoneOrEmail": { "type": "string", "minLength": 5, "maxLength": 100 },
+        "inquiryType": { "type": "string", "enum": ["live_show", "brand_ambassador", "private_vip_event", "media_press"] },
+        "budgetTier": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "eventDate": { "type": "string", "maxLength": 32 },
+        "brief": { "type": "string", "minLength": 10, "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["new", "reviewing", "booked", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["organization", "contactName", "contactPhoneOrEmail", "inquiryType", "budgetTier", "brief", "status", "createdAt"]
+    },
+    "ServiceDoc": {
+      "title": "ServiceDoc",
+      "description": "Editable barbershop service item.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "durationMin": { "type": "number" },
+        "priceRwf": { "type": "number" },
+        "category": { "type": "string", "enum": ["Signature", "Grooming", "VIP"] },
+        "description": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "image": { "type": "string", "maxLength": 500 },
+        "requiresDeposit": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "sortOrder": { "type": "number" }
+      },
+      "required": ["name", "durationMin", "priceRwf", "category", "description", "image", "requiresDeposit", "active"]
+    },
+    "AddonDoc": {
+      "title": "AddonDoc",
+      "description": "Editable checkout upsell add-on.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "priceRwf": { "type": "number" },
+        "tag": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "priceRwf", "tag", "active"]
+    },
+    "BarberDoc": {
+      "title": "BarberDoc",
+      "description": "Editable barber profile, photo, surcharge, and commission rate.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "role": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "tier": { "type": "string", "enum": ["Master", "Senior", "Stylist"] },
+        "surchargeRwf": { "type": "number" },
+        "commissionRate": { "type": "number" },
+        "specialty": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "role", "tier", "surchargeRwf", "commissionRate", "specialty", "avatar", "active"]
+    },
+    "ProductDoc": {
+      "title": "ProductDoc",
+      "description": "Editable merch or grooming product.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "category": { "type": "string", "enum": ["Apparel", "Grooming", "Bundle"] },
+        "priceRwf": { "type": "number" },
+        "stockNote": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "description": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "image": { "type": "string", "maxLength": 500 },
+        "variants": { "type": "array" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "category", "priceRwf", "stockNote", "description", "image", "variants", "active"]
+    },
+    "ReleaseDoc": {
+      "title": "ReleaseDoc",
+      "description": "Editable music release or video showcase.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "featuring": { "type": "string", "maxLength": 120 },
+        "releaseType": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "year": { "type": "string", "minLength": 4, "maxLength": 10 },
+        "location": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "youtubeUrl": { "type": "string", "maxLength": 300 },
+        "audiomackUrl": { "type": "string", "maxLength": 300 },
+        "spotifyUrl": { "type": "string", "maxLength": 300 },
+        "appleMusicUrl": { "type": "string", "maxLength": 300 },
+        "duration": { "type": "string", "maxLength": 16 },
+        "highlight": { "type": "string", "maxLength": 300 },
+        "active": { "type": "boolean" }
+      },
+      "required": ["title", "releaseType", "year", "location", "youtubeUrl", "audiomackUrl", "spotifyUrl", "appleMusicUrl", "duration", "highlight", "active"]
+    },
+    "VipPlanDoc": {
+      "title": "VipPlanDoc",
+      "description": "Editable monthly VIP membership plan.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "audience": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "priceRwf": { "type": "number" },
+        "cutsIncluded": { "type": "number" },
+        "perks": { "type": "array" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "audience", "priceRwf", "cutsIncluded", "perks", "active"]
+    },
+    "ReviewDoc": {
+      "title": "ReviewDoc",
+      "description": "Editable homepage client testimonial.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "role": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "quote": { "type": "string", "minLength": 5, "maxLength": 400 },
+        "outcome": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "role", "quote", "outcome", "active"]
+    },
+    "SiteConfig": {
+      "title": "SiteConfig",
+      "description": "Global shop settings, hours, MoMo config, hero text, schedule slots, and blocked dates.",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string", "maxLength": 80 },
+        "founderName": { "type": "string", "maxLength": 80 },
+        "address": { "type": "string", "maxLength": 160 },
+        "hours": { "type": "string", "maxLength": 120 },
+        "primaryPhone": { "type": "string", "maxLength": 30 },
+        "bookingPhone": { "type": "string", "maxLength": 30 },
+        "vipPhone": { "type": "string", "maxLength": 30 },
+        "mapsUrl": { "type": "string", "maxLength": 400 },
+        "momoPayCode": { "type": "string", "maxLength": 60 },
+        "momoNumber": { "type": "string", "maxLength": 80 },
+        "heroHeadline": { "type": "string", "maxLength": 160 },
+        "heroSubheadline": { "type": "string", "maxLength": 400 },
+        "motoDeliveryFeeRwf": { "type": "number" },
+        "standardDepositRwf": { "type": "number" },
+        "vipDepositRwf": { "type": "number" },
+        "igPersonalCount": { "type": "string", "maxLength": 24 },
+        "igShopCount": { "type": "string", "maxLength": 24 },
+        "blockedDates": { "type": "array" },
+        "timeSlots": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["brandName", "address", "hours", "primaryPhone", "momoPayCode", "momoNumber", "motoDeliveryFeeRwf", "standardDepositRwf", "vipDepositRwf", "blockedDates", "timeSlots"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized Kigali Clipper Zone owner or manager.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["owner", "manager"] }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/bookings/{bookingId}": { "schema": { "$ref": "#/entities/Booking" }, "description": "Haircut bookings and walk-in logs." },
+    "/slot_locks/{lockId}": { "schema": { "$ref": "#/entities/SlotLock" }, "description": "PII-free slot availability locks." },
+    "/loyalty_cards/{cardId}": { "schema": { "$ref": "#/entities/LoyaltyCard" }, "description": "Digital stamp cards keyed by normalized phone digits." },
+    "/subscriptions/{subId}": { "schema": { "$ref": "#/entities/Subscription" }, "description": "Monthly VIP haircut memberships." },
+    "/referrals/{code}": { "schema": { "$ref": "#/entities/Referral" }, "description": "Customer referral codes." },
+    "/orders/{orderId}": { "schema": { "$ref": "#/entities/Order" }, "description": "Merch and grooming store orders." },
+    "/brand_inquiries/{inquiryId}": { "schema": { "$ref": "#/entities/BrandInquiry" }, "description": "Event and sponsorship inquiries." },
+    "/services/{serviceId}": { "schema": { "$ref": "#/entities/ServiceDoc" }, "description": "Editable barbershop services." },
+    "/addons/{addonId}": { "schema": { "$ref": "#/entities/AddonDoc" }, "description": "Editable checkout add-ons." },
+    "/barbers/{barberId}": { "schema": { "$ref": "#/entities/BarberDoc" }, "description": "Editable barbers and commissions." },
+    "/products/{productId}": { "schema": { "$ref": "#/entities/ProductDoc" }, "description": "Editable store products." },
+    "/releases/{releaseId}": { "schema": { "$ref": "#/entities/ReleaseDoc" }, "description": "Editable music releases." },
+    "/vip_plans/{planId}": { "schema": { "$ref": "#/entities/VipPlanDoc" }, "description": "Editable VIP membership plans." },
+    "/reviews/{reviewId}": { "schema": { "$ref": "#/entities/ReviewDoc" }, "description": "Editable client reviews." },
+    "/site_config/{configId}": { "schema": { "$ref": "#/entities/SiteConfig" }, "description": "Global site settings and schedule configuration." },
+    "/admins/{adminId}": { "schema": { "$ref": "#/entities/AdminUser" }, "description": "Authorized admin accounts." }
+  }
+}

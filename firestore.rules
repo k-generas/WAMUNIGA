@@ -1,0 +1,507 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 2 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isPrimaryOwner() {
+      return isVerifiedUser() && request.auth.token.email == 'generaskagiraneza9@gmail.com';
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'generaskagiraneza9@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll([
+        'customerName', 'customerPhone', 'serviceId', 'serviceName',
+        'barberId', 'barberName', 'date', 'slot', 'totalRwf',
+        'depositRwf', 'paymentMethod', 'bookingType', 'status',
+        'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'customerName', 'customerPhone', 'serviceId', 'serviceName',
+        'addonNames', 'barberId', 'barberName', 'date', 'slot',
+        'totalRwf', 'depositRwf', 'paymentMethod', 'bookingType',
+        'status', 'referralCode', 'notes', 'userId', 'createdAt', 'updatedAt'
+      ])
+      && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80
+      && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 24
+      && data.serviceId is string && isValidId(data.serviceId) && data.serviceId.size() <= 64
+      && data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 100
+      && (!('addonNames' in data) || (data.addonNames is string && data.addonNames.size() <= 240))
+      && data.barberId is string && isValidId(data.barberId) && data.barberId.size() <= 64
+      && data.barberName is string && data.barberName.size() >= 2 && data.barberName.size() <= 80
+      && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+      && data.slot is string && data.slot.size() == 5 && data.slot.matches('^\\d{2}:\\d{2}$')
+      && data.totalRwf is number && data.totalRwf >= 0 && data.totalRwf <= 5000000
+      && data.depositRwf is number && data.depositRwf >= 0 && data.depositRwf <= data.totalRwf
+      && data.paymentMethod in ['mtn_momo', 'airtel_money', 'cash_chair']
+      && data.bookingType in ['online', 'walkin']
+      && data.status in ['pending', 'confirmed', 'checked_in', 'completed', 'cancelled']
+      && (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() <= 32))
+      && (!('notes' in data) || (data.notes is string && data.notes.size() <= 300))
+      && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidSlotLock(data) {
+      return data.keys().hasAll(['barberId', 'date', 'slot', 'bookingId', 'status', 'createdAt'])
+      && data.keys().hasOnly(['barberId', 'date', 'slot', 'bookingId', 'status', 'createdAt'])
+      && data.barberId is string && isValidId(data.barberId) && data.barberId.size() <= 64
+      && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+      && data.slot is string && data.slot.size() == 5 && data.slot.matches('^\\d{2}:\\d{2}$')
+      && data.bookingId is string && isValidId(data.bookingId)
+      && data.status in ['reserved', 'completed', 'released']
+      && data.createdAt is timestamp;
+    }
+
+    function isValidLoyaltyCard(data) {
+      return data.keys().hasAll([
+        'phoneKey', 'displayPhone', 'firstName', 'stamps',
+        'totalCuts', 'tier', 'referralCode', 'lastVisitDate',
+        'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'phoneKey', 'displayPhone', 'firstName', 'stamps',
+        'totalCuts', 'tier', 'favoriteBarber', 'referralCode',
+        'lastVisitDate', 'createdAt', 'updatedAt'
+      ])
+      && data.phoneKey is string && data.phoneKey.size() >= 8 && data.phoneKey.size() <= 24 && data.phoneKey.matches('^[0-9]+$')
+      && data.displayPhone is string && data.displayPhone.size() >= 8 && data.displayPhone.size() <= 24
+      && data.firstName is string && data.firstName.size() >= 1 && data.firstName.size() <= 60
+      && data.stamps is number && data.stamps >= 0 && data.stamps <= 6
+      && data.totalCuts is number && data.totalCuts >= 0 && data.totalCuts <= 10000
+      && data.tier in ['Standard', 'VIP', 'Founder']
+      && (!('favoriteBarber' in data) || (data.favoriteBarber is string && data.favoriteBarber.size() <= 60))
+      && data.referralCode is string && isValidId(data.referralCode) && data.referralCode.size() >= 4 && data.referralCode.size() <= 24
+      && data.lastVisitDate is string && data.lastVisitDate.size() == 10 && data.lastVisitDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidSubscription(data) {
+      return data.keys().hasAll([
+        'customerName', 'customerPhone', 'planId', 'planName',
+        'priceRwf', 'paymentMethod', 'status', 'cutsRemaining', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'customerName', 'customerPhone', 'planId', 'planName',
+        'priceRwf', 'paymentMethod', 'status', 'cutsRemaining', 'createdAt'
+      ])
+      && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80
+      && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 24
+      && data.planId is string && isValidId(data.planId) && data.planId.size() <= 64
+      && data.planName is string && data.planName.size() >= 2 && data.planName.size() <= 100
+      && data.priceRwf is number && data.priceRwf > 0 && data.priceRwf <= 1000000
+      && data.paymentMethod in ['mtn_momo', 'airtel_money']
+      && data.status in ['pending_momo', 'active', 'expired']
+      && data.cutsRemaining is number && data.cutsRemaining >= 0 && data.cutsRemaining <= 30
+      && data.createdAt is timestamp;
+    }
+
+    function isValidReferral(data) {
+      return data.keys().hasAll(['code', 'ownerFirstName', 'discountRwf', 'usesCount', 'active', 'createdAt'])
+      && data.keys().hasOnly(['code', 'ownerFirstName', 'discountRwf', 'usesCount', 'active', 'createdAt'])
+      && data.code is string && isValidId(data.code) && data.code.size() >= 4 && data.code.size() <= 24
+      && data.ownerFirstName is string && data.ownerFirstName.size() >= 1 && data.ownerFirstName.size() <= 60
+      && data.discountRwf is number && data.discountRwf >= 500 && data.discountRwf <= 100000
+      && data.usesCount is number && data.usesCount >= 0 && data.usesCount <= 100000
+      && data.active is bool
+      && data.createdAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'customerName', 'customerPhone', 'itemsSummary', 'itemCount',
+        'subtotalRwf', 'deliveryFeeRwf', 'totalRwf', 'fulfillment',
+        'paymentMethod', 'status', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'customerName', 'customerPhone', 'itemsSummary', 'itemCount',
+        'subtotalRwf', 'deliveryFeeRwf', 'totalRwf', 'fulfillment',
+        'deliveryAddress', 'paymentMethod', 'status', 'createdAt'
+      ])
+      && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80
+      && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 24
+      && data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 500
+      && data.itemCount is number && data.itemCount >= 1 && data.itemCount <= 100
+      && data.subtotalRwf is number && data.subtotalRwf > 0 && data.subtotalRwf <= 5000000
+      && data.deliveryFeeRwf is number && data.deliveryFeeRwf >= 0 && data.deliveryFeeRwf <= 50000
+      && data.totalRwf is number && data.totalRwf == data.subtotalRwf + data.deliveryFeeRwf
+      && data.fulfillment in ['shop_pickup', 'kigali_moto']
+      && (!('deliveryAddress' in data) || (data.deliveryAddress is string && data.deliveryAddress.size() <= 200))
+      && data.paymentMethod in ['mtn_momo', 'airtel_money', 'pay_on_pickup']
+      && data.status in ['pending', 'paid', 'dispatched', 'completed']
+      && data.createdAt is timestamp;
+    }
+
+    function isValidBrandInquiry(data) {
+      return data.keys().hasAll([
+        'organization', 'contactName', 'contactPhoneOrEmail',
+        'inquiryType', 'budgetTier', 'brief', 'status', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'organization', 'contactName', 'contactPhoneOrEmail',
+        'inquiryType', 'budgetTier', 'eventDate', 'brief', 'status', 'createdAt'
+      ])
+      && data.organization is string && data.organization.size() >= 2 && data.organization.size() <= 100
+      && data.contactName is string && data.contactName.size() >= 2 && data.contactName.size() <= 80
+      && data.contactPhoneOrEmail is string && data.contactPhoneOrEmail.size() >= 5 && data.contactPhoneOrEmail.size() <= 100
+      && data.inquiryType in ['live_show', 'brand_ambassador', 'private_vip_event', 'media_press']
+      && data.budgetTier is string && data.budgetTier.size() >= 2 && data.budgetTier.size() <= 60
+      && (!('eventDate' in data) || (data.eventDate is string && data.eventDate.size() <= 32))
+      && data.brief is string && data.brief.size() >= 10 && data.brief.size() <= 1000
+      && data.status in ['new', 'reviewing', 'booked', 'archived']
+      && data.createdAt is timestamp;
+    }
+
+    function isValidServiceDoc(data) {
+      return data.keys().hasAll(['name', 'durationMin', 'priceRwf', 'category', 'description', 'image', 'requiresDeposit', 'active'])
+      && data.keys().hasOnly(['name', 'durationMin', 'priceRwf', 'category', 'description', 'image', 'requiresDeposit', 'active', 'sortOrder'])
+      && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+      && data.durationMin is number && data.durationMin >= 5 && data.durationMin <= 480
+      && data.priceRwf is number && data.priceRwf >= 500 && data.priceRwf <= 5000000
+      && data.category in ['Signature', 'Grooming', 'VIP']
+      && data.description is string && data.description.size() >= 2 && data.description.size() <= 300
+      && data.image is string && data.image.size() <= 500
+      && data.requiresDeposit is bool
+      && data.active is bool
+      && (!('sortOrder' in data) || data.sortOrder is number);
+    }
+
+    function isValidAddonDoc(data) {
+      return data.keys().hasAll(['name', 'priceRwf', 'tag', 'active'])
+      && data.keys().hasOnly(['name', 'priceRwf', 'tag', 'active'])
+      && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+      && data.priceRwf is number && data.priceRwf >= 0 && data.priceRwf <= 1000000
+      && data.tag is string && data.tag.size() >= 1 && data.tag.size() <= 40
+      && data.active is bool;
+    }
+
+    function isValidBarberDoc(data) {
+      return data.keys().hasAll(['name', 'role', 'tier', 'surchargeRwf', 'commissionRate', 'specialty', 'avatar', 'active'])
+      && data.keys().hasOnly(['name', 'role', 'tier', 'surchargeRwf', 'commissionRate', 'specialty', 'avatar', 'active'])
+      && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+      && data.role is string && data.role.size() >= 2 && data.role.size() <= 80
+      && data.tier in ['Master', 'Senior', 'Stylist']
+      && data.surchargeRwf is number && data.surchargeRwf >= 0 && data.surchargeRwf <= 500000
+      && data.commissionRate is number && data.commissionRate >= 0 && data.commissionRate <= 1
+      && data.specialty is string && data.specialty.size() >= 2 && data.specialty.size() <= 200
+      && data.avatar is string && data.avatar.size() <= 500
+      && data.active is bool;
+    }
+
+    function isValidProductDoc(data) {
+      return data.keys().hasAll(['name', 'category', 'priceRwf', 'stockNote', 'description', 'image', 'variants', 'active'])
+      && data.keys().hasOnly(['name', 'category', 'priceRwf', 'stockNote', 'description', 'image', 'variants', 'active'])
+      && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+      && data.category in ['Apparel', 'Grooming', 'Bundle']
+      && data.priceRwf is number && data.priceRwf >= 500 && data.priceRwf <= 5000000
+      && data.stockNote is string && data.stockNote.size() >= 1 && data.stockNote.size() <= 60
+      && data.description is string && data.description.size() >= 2 && data.description.size() <= 300
+      && data.image is string && data.image.size() <= 500
+      && data.variants is list && data.variants.size() >= 1 && data.variants.size() <= 10 && data.variants[0] is string
+      && data.active is bool;
+    }
+
+    function isValidReleaseDoc(data) {
+      return data.keys().hasAll(['title', 'releaseType', 'year', 'location', 'youtubeUrl', 'audiomackUrl', 'spotifyUrl', 'appleMusicUrl', 'duration', 'highlight', 'active'])
+      && data.keys().hasOnly(['title', 'featuring', 'releaseType', 'year', 'location', 'youtubeUrl', 'audiomackUrl', 'spotifyUrl', 'appleMusicUrl', 'duration', 'highlight', 'active'])
+      && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+      && (!('featuring' in data) || (data.featuring is string && data.featuring.size() <= 120))
+      && data.releaseType is string && data.releaseType.size() >= 2 && data.releaseType.size() <= 80
+      && data.year is string && data.year.size() >= 4 && data.year.size() <= 10
+      && data.location is string && data.location.size() >= 2 && data.location.size() <= 80
+      && data.youtubeUrl is string && data.youtubeUrl.size() <= 300
+      && data.audiomackUrl is string && data.audiomackUrl.size() <= 300
+      && data.spotifyUrl is string && data.spotifyUrl.size() <= 300
+      && data.appleMusicUrl is string && data.appleMusicUrl.size() <= 300
+      && data.duration is string && data.duration.size() <= 16
+      && data.highlight is string && data.highlight.size() <= 300
+      && data.active is bool;
+    }
+
+    function isValidVipPlanDoc(data) {
+      return data.keys().hasAll(['name', 'audience', 'priceRwf', 'cutsIncluded', 'perks', 'active'])
+      && data.keys().hasOnly(['name', 'audience', 'priceRwf', 'cutsIncluded', 'perks', 'active'])
+      && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+      && data.audience is string && data.audience.size() >= 2 && data.audience.size() <= 120
+      && data.priceRwf is number && data.priceRwf >= 1000 && data.priceRwf <= 1000000
+      && data.cutsIncluded is number && data.cutsIncluded >= 1 && data.cutsIncluded <= 30
+      && data.perks is list && data.perks.size() >= 1 && data.perks.size() <= 10 && data.perks[0] is string
+      && data.active is bool;
+    }
+
+    function isValidReviewDoc(data) {
+      return data.keys().hasAll(['name', 'role', 'quote', 'outcome', 'active'])
+      && data.keys().hasOnly(['name', 'role', 'quote', 'outcome', 'active'])
+      && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+      && data.role is string && data.role.size() >= 2 && data.role.size() <= 80
+      && data.quote is string && data.quote.size() >= 5 && data.quote.size() <= 400
+      && data.outcome is string && data.outcome.size() >= 2 && data.outcome.size() <= 80
+      && data.active is bool;
+    }
+
+    function isValidSiteConfig(data) {
+      return data.keys().hasAll([
+        'brandName', 'address', 'hours', 'primaryPhone', 'momoPayCode',
+        'momoNumber', 'motoDeliveryFeeRwf', 'standardDepositRwf', 'vipDepositRwf',
+        'blockedDates', 'timeSlots'
+      ])
+      && data.keys().hasOnly([
+        'brandName', 'founderName', 'address', 'hours', 'primaryPhone',
+        'bookingPhone', 'vipPhone', 'mapsUrl', 'momoPayCode', 'momoNumber',
+        'heroHeadline', 'heroSubheadline', 'motoDeliveryFeeRwf',
+        'standardDepositRwf', 'vipDepositRwf', 'igPersonalCount', 'igShopCount',
+        'blockedDates', 'timeSlots', 'updatedAt'
+      ])
+      && data.brandName is string && data.brandName.size() >= 2 && data.brandName.size() <= 80
+      && (!('founderName' in data) || (data.founderName is string && data.founderName.size() <= 80))
+      && data.address is string && data.address.size() >= 2 && data.address.size() <= 160
+      && data.hours is string && data.hours.size() >= 2 && data.hours.size() <= 120
+      && data.primaryPhone is string && data.primaryPhone.size() >= 5 && data.primaryPhone.size() <= 30
+      && (!('bookingPhone' in data) || (data.bookingPhone is string && data.bookingPhone.size() <= 30))
+      && (!('vipPhone' in data) || (data.vipPhone is string && data.vipPhone.size() <= 30))
+      && (!('mapsUrl' in data) || (data.mapsUrl is string && data.mapsUrl.size() <= 400))
+      && data.momoPayCode is string && data.momoPayCode.size() >= 2 && data.momoPayCode.size() <= 60
+      && data.momoNumber is string && data.momoNumber.size() >= 2 && data.momoNumber.size() <= 80
+      && (!('heroHeadline' in data) || (data.heroHeadline is string && data.heroHeadline.size() <= 160))
+      && (!('heroSubheadline' in data) || (data.heroSubheadline is string && data.heroSubheadline.size() <= 400))
+      && data.motoDeliveryFeeRwf is number && data.motoDeliveryFeeRwf >= 0 && data.motoDeliveryFeeRwf <= 50000
+      && data.standardDepositRwf is number && data.standardDepositRwf >= 0 && data.standardDepositRwf <= 100000
+      && data.vipDepositRwf is number && data.vipDepositRwf >= 0 && data.vipDepositRwf <= 200000
+      && (!('igPersonalCount' in data) || (data.igPersonalCount is string && data.igPersonalCount.size() <= 24))
+      && (!('igShopCount' in data) || (data.igShopCount is string && data.igShopCount.size() <= 24))
+      && data.blockedDates is list && data.blockedDates.size() <= 90
+      && data.timeSlots is list && data.timeSlots.size() >= 1 && data.timeSlots.size() <= 30
+      && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'role'])
+      && data.keys().hasOnly(['email', 'role'])
+      && data.email is string && data.email.size() >= 5 && data.email.size() <= 120
+      && data.role in ['owner', 'manager'];
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin();
+      allow create: if isValidId(bookingId)
+        && isValidBooking(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            incoming().bookingType == 'online'
+            && incoming().status in ['pending', 'confirmed']
+            && (!('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid))
+          )
+        );
+      allow update: if isValidId(bookingId)
+        && isAdmin()
+        && isValidBooking(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'paymentMethod', 'depositRwf', 'totalRwf', 'barberId', 'barberName', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isValidId(bookingId) && isAdmin();
+    }
+
+    match /slot_locks/{lockId} {
+      allow get: if isValidId(lockId);
+      allow list: if existing().status in ['reserved', 'completed', 'released'];
+      allow create: if isValidId(lockId)
+        && isValidSlotLock(incoming())
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() || (
+            incoming().status == 'reserved'
+            && existsAfter(/databases/$(database)/documents/bookings/$(incoming().bookingId))
+          )
+        );
+      allow update: if isValidId(lockId)
+        && isAdmin()
+        && isValidSlotLock(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isValidId(lockId) && isAdmin();
+    }
+
+    match /loyalty_cards/{cardId} {
+      allow get: if isValidId(cardId);
+      allow list: if isAdmin();
+      allow create: if isValidId(cardId)
+        && cardId == incoming().phoneKey
+        && isValidLoyaltyCard(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            incoming().stamps == 0
+            && incoming().totalCuts == 0
+            && incoming().tier == 'Standard'
+          )
+        );
+      allow update: if isValidId(cardId)
+        && isAdmin()
+        && isValidLoyaltyCard(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().phoneKey == existing().phoneKey
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['stamps', 'totalCuts', 'tier', 'favoriteBarber', 'lastVisitDate', 'updatedAt']);
+      allow delete: if isValidId(cardId) && isAdmin();
+    }
+
+    match /subscriptions/{subId} {
+      allow read: if isAdmin();
+      allow create: if isValidId(subId)
+        && isValidSubscription(incoming())
+        && incoming().createdAt == request.time
+        && (isAdmin() || incoming().status == 'pending_momo');
+      allow update: if isValidId(subId)
+        && isAdmin()
+        && isValidSubscription(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'cutsRemaining']);
+      allow delete: if isValidId(subId) && isAdmin();
+    }
+
+    match /referrals/{code} {
+      allow get: if isValidId(code);
+      allow list: if isAdmin();
+      allow create: if isValidId(code)
+        && code == incoming().code
+        && isValidReferral(incoming())
+        && incoming().createdAt == request.time
+        && (isAdmin() || (incoming().discountRwf == 2000 && incoming().usesCount == 0 && incoming().active == true));
+      allow update: if isValidId(code)
+        && isAdmin()
+        && isValidReferral(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().code == existing().code
+        && incoming().diff(existing()).affectedKeys().hasOnly(['usesCount', 'active', 'discountRwf']);
+      allow delete: if isValidId(code) && isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin();
+      allow create: if isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().createdAt == request.time
+        && (isAdmin() || incoming().status == 'pending');
+      allow update: if isValidId(orderId)
+        && isAdmin()
+        && isValidOrder(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    match /brand_inquiries/{inquiryId} {
+      allow read: if isAdmin();
+      allow create: if isValidId(inquiryId)
+        && isValidBrandInquiry(incoming())
+        && incoming().createdAt == request.time
+        && (isAdmin() || incoming().status == 'new');
+      allow update: if isValidId(inquiryId)
+        && isAdmin()
+        && isValidBrandInquiry(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    // Admin-Controlled Live Catalog & Site Configuration (Zero PII)
+    match /services/{serviceId} {
+      allow get: if isValidId(serviceId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(serviceId) && isAdmin() && isValidServiceDoc(incoming());
+      allow delete: if isValidId(serviceId) && isAdmin();
+    }
+
+    match /addons/{addonId} {
+      allow get: if isValidId(addonId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(addonId) && isAdmin() && isValidAddonDoc(incoming());
+      allow delete: if isValidId(addonId) && isAdmin();
+    }
+
+    match /barbers/{barberId} {
+      allow get: if isValidId(barberId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(barberId) && isAdmin() && isValidBarberDoc(incoming());
+      allow delete: if isValidId(barberId) && isAdmin();
+    }
+
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(productId) && isAdmin() && isValidProductDoc(incoming());
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    match /releases/{releaseId} {
+      allow get: if isValidId(releaseId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(releaseId) && isAdmin() && isValidReleaseDoc(incoming());
+      allow delete: if isValidId(releaseId) && isAdmin();
+    }
+
+    match /vip_plans/{planId} {
+      allow get: if isValidId(planId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(planId) && isAdmin() && isValidVipPlanDoc(incoming());
+      allow delete: if isValidId(planId) && isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId);
+      allow list: if existing().active is bool;
+      allow create, update: if isValidId(reviewId) && isAdmin() && isValidReviewDoc(incoming());
+      allow delete: if isValidId(reviewId) && isAdmin();
+    }
+
+    match /site_config/{configId} {
+      allow get: if isValidId(configId);
+      allow list: if isAdmin();
+      allow create, update: if isValidId(configId) && isAdmin() && isValidSiteConfig(incoming());
+      allow delete: if isValidId(configId) && isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow get: if isAdmin() || (isSignedIn() && request.auth.uid == adminId);
+      allow list: if isAdmin();
+      allow create, update: if isValidId(adminId) && isPrimaryOwner() && isValidAdminUser(incoming());
+      allow delete: if isValidId(adminId) && isPrimaryOwner();
+    }
+  }
+}
