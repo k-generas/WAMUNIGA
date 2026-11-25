@@ -1,10 +1,27 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
+import { doc, getDocFromServer, initializeFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
+function isEmbeddedIframe(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const embedded = isEmbeddedIframe();
+
+export const db = initializeFirestore(
+  app,
+  embedded
+    ? { experimentalForceLongPolling: true }
+    : { experimentalAutoDetectLongPolling: true },
+  firebaseConfig.firestoreDatabaseId
+);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -67,7 +84,14 @@ export async function testConnection(): Promise<void> {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (retryError) {
+        if (retryError instanceof Error && retryError.message.includes('the client is offline')) {
+          console.error('Please check your Firebase configuration.');
+        }
+      }
     }
   }
 }
